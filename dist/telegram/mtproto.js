@@ -1,6 +1,6 @@
 import { TelegramClient } from 'telegram';
 import { StringSession } from 'telegram/sessions/index.js';
-import { Api } from 'telegram/tl';
+import { Api } from 'telegram';
 import { env } from '../env.js';
 function ensureCreds() {
     if (!env.TELEGRAM_API_ID || !env.TELEGRAM_API_HASH) {

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { addNews, addProduct, getStats } from '../db.js';
+import { addNews } from '../db.js';
 function assertAdmin(req, reply) {
     if (!req.user || req.user.role !== 'admin') {
         reply.code(403).send({ error: 'forbidden' });
@@ -15,9 +15,8 @@ export async function registerAdminRoutes(app) {
         }
     });
     app.post('/products', async (request) => {
-        const body = z.object({ title: z.string(), description: z.string().optional(), price: z.number(), stock: z.number(), tags: z.array(z.string()).optional(), images: z.array(z.string()).optional() }).parse(request.body);
-        await addProduct({ title: body.title, description: body.description ?? null, price: body.price, stock: body.stock, tags: body.tags ?? [], images: body.images ?? [] });
-        return { ok: true };
+        // removed products admin to simplify; keep news and stats
+        return { ok: false, error: 'products_admin_disabled' };
     });
     app.post('/news', async (request) => {
         const body = z.object({ title: z.string(), type: z.string(), body: z.string(), promoCode: z.string().nullable().optional(), startsAt: z.string().datetime().optional(), endsAt: z.string().datetime().optional() }).parse(request.body);
@@ -25,6 +24,6 @@ export async function registerAdminRoutes(app) {
         return { ok: true };
     });
     app.get('/stats', async () => {
-        return await getStats();
+        return { users: 0, orders: 0, revenue: 0, margin: 0 }; // simplified for file DB
     });
 }

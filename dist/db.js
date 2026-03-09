@@ -24,6 +24,7 @@ export async function initDb() {
         };
         await save();
     }
+    migrateLegacy();
 }
 function requireCache() {
     if (!cache)
@@ -34,6 +35,24 @@ async function save() {
     if (!cache)
         return;
     await fs.writeFile(dataFile, JSON.stringify(cache, null, 2));
+}
+// migrate legacy phone-based users/orders to tg-based minimal
+function migrateLegacy() {
+    const data = requireCache();
+    // if orders use user_phone, rename to user_id by creating tg_id stub
+    // skip if already migrated
+    if (data.orders[0]?.user_phone) {
+        for (const ord of data.orders) {
+            const phone = ord.user_phone;
+            let user = data.users.find(u => u.phone === phone);
+            if (!user) {
+                user = { id: uuid(), tg_id: Date.now(), phone, role: 'user', created_at: new Date().toISOString() };
+                data.users.push(user);
+            }
+            ord.user_id = user.id;
+            delete ord.user_phone;
+        }
+    }
 }
 export async function getProducts() { return requireCache().products; }
 export async function getNews() { return requireCache().news; }
@@ -60,29 +79,33 @@ export async function upsertOtp(entry) {
         data.otp_codes.push(entry);
     await save();
 }
-export async function getOtp(phone) {
-    return requireCache().otp_codes.find(o => o.phone === phone);
-}
-export async function incOtpAttempts(phone) {
+export async function getOtp(phone) { return requireCache().otp_codes.find(o => o.phone === phone); }
+export async function incOtpAttempts(phone) { const data = requireCache(); const otp = data.otp_codes.find(o => o.phone === phone); if (otp) {
+    otp.attempts += 1;
+    await save();
+} }
+export async function upsertUserByTg(tg_id, payload) {
     const data = requireCache();
-    const otp = data.otp_codes.find(o => o.phone === phone);
-    if (otp) {
-        otp.attempts += 1;
-        await save();
-    }
-}
-export async function upsertUser(phone, username, role) {
-    const data = requireCache();
-    let user = data.users.find(u => u.phone === phone);
+    let user = data.users.find(u => u.tg_id === tg_id);
     if (!user) {
-        user = { id: uuid(), phone, tg_user_id: username ?? null, role: role || 'user', created_at: new Date().toISOString() };
+        user = {
+            id: uuid(), tg_id, role: 'user', created_at: new Date().toISOString(),
+            username: payload.username ?? null,
+            first_name: payload.first_name ?? null,
+            last_name: payload.last_name ?? null,
+            phone: payload.phone ?? null,
+            avatar: payload.avatar ?? null,
+        };
         data.users.push(user);
     }
     else {
-        if (username)
-            user.tg_user_id = username;
-        if (role)
-            user.role = role;
+        user.username = payload.username ?? user.username;
+        user.first_name = payload.first_name ?? user.first_name;
+        user.last_name = payload.last_name ?? user.last_name;
+        user.phone = payload.phone ?? user.phone;
+        user.avatar = payload.avatar ?? user.avatar;
+        if (payload.role)
+            user.role = payload.role;
     }
     await save();
     return user;
@@ -94,8 +117,11 @@ export async function createOrder(order) {
     await save();
     return item;
 }
-export async function getOrder(id, phone) {
-    return requireCache().orders.find(o => o.id === id && o.user_phone === phone) || null;
+export async function getOrder(id, userId) {
+    return requireCache().orders.find(o => o.id === id && o.user_id === userId) || null;
+}
+export async function listOrdersByUser(userId) {
+    return requireCache().orders.filter(o => o.user_id === userId);
 }
 export async function getStats() {
     const data = requireCache();

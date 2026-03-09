@@ -7,6 +7,7 @@ import { registerCatalogRoutes } from './routes/catalog.js';
 import { registerNewsRoutes } from './routes/news.js';
 import { registerOrdersRoutes } from './routes/orders.js';
 import { registerAdminRoutes } from './routes/admin.js';
+import { registerWebAppAuth } from './routes/webapp.js';
 import { createBot } from './telegram/bot.js';
 import { env } from './env.js';
 import { initDb } from './db.js';
@@ -27,7 +28,8 @@ app.addHook('preHandler', async (req, reply) => {
   }
 });
 
-app.register(registerAuthRoutes, { prefix: '/auth' });
+app.register(registerWebAppAuth, { prefix: '/auth' }); // new webapp login
+app.register(registerAuthRoutes, { prefix: '/auth' }); // legacy OTP fallback (можно удалить позже)
 app.register(registerCatalogRoutes, { prefix: '/catalog' });
 app.register(registerNewsRoutes, { prefix: '/news' });
 app.register(registerOrdersRoutes, { prefix: '/orders' });

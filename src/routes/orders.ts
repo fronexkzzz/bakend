@@ -1,14 +1,10 @@
-import { FastifyInstance } from 'fastify';
+ï»¿import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { createOrder, getOrder } from '../db.js';
-import { getBot } from '../telegram/bot.js';
-import { env } from '../env.js';
+import { createOrder, getOrder, listOrdersByUser } from '../db.js';
 
 export async function registerOrdersRoutes(app: FastifyInstance) {
   app.addHook('preHandler', async (req, reply) => {
-    if (!req.user) {
-      return reply.code(401).send({ error: 'unauthorized' });
-    }
+    try { await req.jwtVerify(); } catch { return reply.code(401).send({ error: 'unauthorized' }); }
   });
 
   app.post('/', async (request, reply) => {
@@ -21,24 +17,21 @@ export async function registerOrdersRoutes(app: FastifyInstance) {
       })
       .parse(request.body);
 
-    const userPhone = (request as any).user.phone;
-    const order = await createOrder({ user_phone: userPhone, status: 'new', items: body.items, total: body.total, margin: body.margin ?? null, revenue: body.revenue ?? null });
-
-    const bot = getBot();
-    if (bot && env.TELEGRAM_ADMIN_USERNAMES.length) {
-      const text = `Íîâûé çàêàç ${order.id}\nÏîëüçîâàòåëü: ${userPhone}\nÑóììà: ${body.total}`;
-      for (const username of env.TELEGRAM_ADMIN_USERNAMES) {
-        bot.sendMessage(`@${username}`, text).catch(() => {});
-      }
-    }
-
+    const userId = (request as any).user.user_id;
+    const order = await createOrder({ user_id: userId, status: 'new', items: body.items, total: body.total, margin: body.margin ?? null, revenue: body.revenue ?? null });
     return { id: order.id, status: order.status };
+  });
+
+  app.get('/my', async (request) => {
+    const userId = (request as any).user.user_id;
+    const orders = await listOrdersByUser(userId);
+    return orders;
   });
 
   app.get('/:id', async (request, reply) => {
     const orderId = (request.params as any).id;
-    const userPhone = (request as any).user.phone;
-    const order = await getOrder(orderId, userPhone);
+    const userId = (request as any).user.user_id;
+    const order = await getOrder(orderId, userId);
     if (!order) return reply.code(404).send({ error: 'not_found' });
     return order;
   });

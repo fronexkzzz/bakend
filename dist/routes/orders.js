@@ -1,10 +1,11 @@
 import { z } from 'zod';
-import { createOrder, getOrder } from '../db.js';
-import { getBot } from '../telegram/bot.js';
-import { env } from '../env.js';
+import { createOrder, getOrder, listOrdersByUser } from '../db.js';
 export async function registerOrdersRoutes(app) {
     app.addHook('preHandler', async (req, reply) => {
-        if (!req.user) {
+        try {
+            await req.jwtVerify();
+        }
+        catch {
             return reply.code(401).send({ error: 'unauthorized' });
         }
     });
@@ -17,21 +18,19 @@ export async function registerOrdersRoutes(app) {
             revenue: z.number().optional(),
         })
             .parse(request.body);
-        const userPhone = request.user.phone;
-        const order = await createOrder({ user_phone: userPhone, status: 'new', items: body.items, total: body.total, margin: body.margin ?? null, revenue: body.revenue ?? null });
-        const bot = getBot();
-        if (bot && env.TELEGRAM_ADMIN_USERNAMES.length) {
-            const text = `����� ����� ${order.id}\n������������: ${userPhone}\n�����: ${body.total}`;
-            for (const username of env.TELEGRAM_ADMIN_USERNAMES) {
-                bot.sendMessage(`@${username}`, text).catch(() => { });
-            }
-        }
+        const userId = request.user.user_id;
+        const order = await createOrder({ user_id: userId, status: 'new', items: body.items, total: body.total, margin: body.margin ?? null, revenue: body.revenue ?? null });
         return { id: order.id, status: order.status };
+    });
+    app.get('/my', async (request) => {
+        const userId = request.user.user_id;
+        const orders = await listOrdersByUser(userId);
+        return orders;
     });
     app.get('/:id', async (request, reply) => {
         const orderId = request.params.id;
-        const userPhone = request.user.phone;
-        const order = await getOrder(orderId, userPhone);
+        const userId = request.user.user_id;
+        const order = await getOrder(orderId, userId);
         if (!order)
             return reply.code(404).send({ error: 'not_found' });
         return order;
