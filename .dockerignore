@@ -1,11 +1,8 @@
-node_modules
-npm-debug.log*
-.DS_Store
-.npm-cache
+node_modules/
+.npm-cache/
 .env
-.env.local
+.env.*
 .git
 .gitignore
-src
-*.ts
-*.tsx
+npm-debug.log*
+.DS_Store
