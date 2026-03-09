@@ -16,7 +16,8 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 
 COPY --from=build /app/dist ./dist
-COPY --from=build /app/data.json ./data.json || true
+# init empty data file if not present
+RUN [ ! -f /app/data.json ] && echo "{\"users\":[],\"otp_codes\":[],\"products\":[],\"news\":[],\"orders\":[]}" > /app/data.json || true
 
 ENV PORT=3001
 CMD ["node", "dist/index.js"]
