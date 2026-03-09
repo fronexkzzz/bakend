@@ -1,7 +1,6 @@
 ﻿import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
-import rateLimit from '@fastify/rate-limit';
 import fastifyJwt from '@fastify/jwt';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerCatalogRoutes } from './routes/catalog.js';
@@ -16,7 +15,6 @@ const app = Fastify({ logger: true });
 
 app.register(cors, { origin: true });
 app.register(helmet);
-app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
 app.register(fastifyJwt, { secret: env.JWT_SECRET });
 
 app.addHook('preHandler', async (req, reply) => {
